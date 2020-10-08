@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>タベレバ</title>
+  <style>html,body{height:100%;}body{padding:0;margin:0;}h1{padding:0;margin:0;font-size:50%;}</style>
+</head>
+<body>
+<!-- MAP[START] -->
+<h1>目的地までで、すぐに寄れる美味しいお店を探すよ！</h1>
+
+<div>現在地緯度軽度: </div>
+<div id="clat"></div>
+<div id="clng"></div>
+<div>目的地:</div>
+<div id="toContainer">
+    <input id="to" value="">
+</div>
+
+<!-- <div>
+    <select id="mode">
+        <option value="driving">driving</option>
+        <option value="walking">walking</option>
+    </select>
+    <input type="button" id="routesearch" value="ルート検索">
+</div> -->
+
+<!-- MAP[END] -->
+<div>食べたいもの: <input type="text" id ="category" value ="寿司"></div>
+
+<div>
+    ぐるなびアクセスキー<input id="key" value="25cd616e932463dbdf7a102579eb2480" type="text" size="45">
+    <input type="button" id="shopsearch" value="店舗検索"><br>
+    <!-- 緯度lat: <input type="text" id="lat" >
+    value="35.667215"
+    経度lon: <input type="text" id="lon" >
+    value="139.713861" -->
+</div> 
+<div id="myMap" class="myMap" style='width:50%;height:50%;'></div>
+
+<table id="table" border="1" style="border-collapse: collapse;">
+    <tr>
+        <th>店舗名</th>
+        <th>業態</th>
+        <!-- <th>営業日</th>
+        <th>住所</th>
+        <th>URL</th>  -->
+    </tr>
+</table> 
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src='https://www.bing.com/api/maps/mapcontrol?callback=GetMap&key=AjeylGqMoQ2K9XQGz1leu0EmFukbI0BNIkxvJjAc6xf5fK4gbj_--R3zNjkrORmh' async defer></script>
+<script src="BmapQuery.js"></script>
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDQXEPAWomjfGwMjMG4RmncVYNyTwDz254&callback=initMap"></script>
+<script>
+
+//!!!!!この中のAPIってどうやって消せばいいのか？
+
+// ------------------------------------------------------------------------
+// googlemapで現在地表示
+// ------------------------------------------------------------------------
+var map;
+function initMap() {
+  var opts = {
+    zoom: 15,
+    center: new google.maps.LatLng(35.6598003, 139.7023894),
+  };
+  map = new google.maps.Map(document.getElementById("myMap"), opts);
+  currentLoc();
+}
+
+function currentLoc() {
+  navigator.geolocation.getCurrentPosition(
+    // 取得成功した場合
+    function (position) {
+      // 緯度・経度を変数に格納
+      var mapLatLng = new google.maps.LatLng(
+        position.coords.latitude,
+        position.coords.longitude
+      );
+      // マップオプションを変数に格納
+      var mapOptions = {
+        zoom: 15, // 拡大倍率
+        center: mapLatLng, // 緯度・経度
+      };
+      // マップオブジェクト作成
+      var map = new google.maps.Map(
+        document.getElementById("myMap"), // マップを表示する要素
+        mapOptions // マップオプション
+      );
+      //マップにマーカーを表示する
+      var marker = new google.maps.Marker({
+          map: map, // 対象の地図オブジェクト
+          position: mapLatLng, // 緯度・経度
+          icon: {
+              fillColor: "#FF0000",                //塗り潰し色
+              fillOpacity: 0.8,                    //塗り潰し透過率
+              path: google.maps.SymbolPath.CIRCLE, //円を指定
+              scale: 6,                           //円のサイズ
+              strokeColor: "#FF0000",              //枠の色
+              strokeWeight: 1.0                    //枠の透過率
+          }
+      });
+      //latlngをhtml表示
+      let clat = position.coords.latitude;
+      let clng = position.coords.longitude;
+      $('#clat').html(clat);
+      $('#clng').html(clng);
+    }
+  );
+}
+
+//------------------------------------------------------------------------
+//目的地オートサジェスト
+//------------------------------------------------------------------------
+
+function GetMap(){
+  const bmap = new Bmap();
+  bmap.startMap(35.665100, 139.712000, "load", 10);
+  bmap.selectedSuggestion("#to","#toContainer");
+}
+//!!!!!!!!!!!!!!!機能せず!!!!!!!!!!!!!!!!!!!
+
+
+//------------------------------------------------------------------------
+//現在地周辺店舗検索
+//------------------------------------------------------------------------
+
+$("#shopsearch").on("click", function() {
+    //送信データをObject変数で用意
+    //参考URL:https://api.gnavi.co.jp/api/manual/restsearch/
+    const data = {
+      keyid:$("#key").val(),
+      latitude:$("#clat").html(),
+      longitude:$("#clng").html(),
+      range:3,
+      freeword:$("#category").val(),
+    };
+    //Ajax（非同期通信）
+    axios.get('https://api.gnavi.co.jp/RestSearchAPI/v3/', {
+        params:data
+    })
+    .then(function (response) {
+        //データ受信成功！！showData関数にデータを渡す
+        showData(response.data);
+    }).catch(function (error) {
+        console.log(error);//通信Error
+    }).then(function () {
+        console.log("Last");//通信OK/Error後に処理を必ずさせたい場合
+    });
+});
+
+
+//------------------------------------------------------------------------
+//店舗データのテーブル表示
+//------------------------------------------------------------------------
+function showData(data){
+    //データ確認用
+    console.log(data.rest);
+
+    //データを繰り返し処理で取得
+    const len  = data.rest.length; //データ数を取得
+    for( let i=0; i<len; i++){
+        $("#table").append('<tr><td>' + data.rest[i].name + '</td><td>' + data.rest[i].code.category_name_l + '</td></tr>');
+        // $("#table").append('<tr><td>' + data.rest[i].name + '</td><td>' + data.rest[i].opentime + '</td><td>' + data.rest[i].holiday + '</td><td>' + data.rest[i].address + '</td><td>' + data.rest[i].url + '</td></tr>');
+    };
+}
+
+
+
+
+</script>
+</body>
+</html>
